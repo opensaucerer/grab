@@ -142,14 +142,20 @@ func grabFiles(files []File) {
 
 	for _, file := range files {
 		// create gcs destination
-		d, err := gcs.OpenForSaving(config.GlobalConfig.OGBucket, file.Filename)
+		ctx := context.Background()
+
+		// create the object
+		obj := Client.Bucket("bucket").Object("filename")
+
+		// create the writer
+		w := obj.NewWriter(ctx)
 		if err != nil {
 			log.Printf("gcs.OpenForSaving: Download request failed :: %s :: %s :: %v", file.URL, file.Filename, err)
 			return
 		}
 
 		// create download request
-		req, _ := grab.NewRequestToWriter(d, file.URL)
+		req, _ := grab.NewRequestToWriter(w, file.URL)
 
 		// start download
 		resp := client.Do(req)
