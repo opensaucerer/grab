@@ -3,7 +3,7 @@ package grabui
 import (
 	"context"
 
-	"github.com/cavaliergopher/grab/v3"
+	"github.com/opensaucerer/grab/v3"
 )
 
 func GetBatch(

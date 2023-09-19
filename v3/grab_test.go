@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cavaliergopher/grab/v3/pkg/grabtest"
+	"github.com/opensaucerer/grab/v3/pkg/grabtest"
 )
 
 func TestMain(m *testing.M) {

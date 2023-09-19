@@ -4,7 +4,7 @@
 
 _Downloading the internet, one goroutine at a time!_
 
-    $ go get github.com/cavaliergopher/grab/v3
+    $ go get github.com/opensaucerer/grab/v3
 
 Grab is a Go package for downloading files from the internet with the following
 rad features:
@@ -46,7 +46,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cavaliergopher/grab/v3"
+	"github.com/opensaucerer/grab/v3"
 )
 
 func main() {
@@ -96,7 +96,7 @@ Loop:
 }
 ```
 
-#### This extended version of the original `cavaliergopher/grab` now allows you to download files into a given io.Writer.
+#### This extended version of the original `opensaucerer/grab` now allows you to download files into a given io.Writer.
 
 ```go
 package main
@@ -110,7 +110,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/blacheinc/pixels-golang-engine/config"
 	"github.com/blacheinc/pixels-golang-engine/gcs"
-	"github.com/cavaliergopher/grab/v3"
+	"github.com/opensaucerer/grab/v3"
 )
 
 type File struct {
