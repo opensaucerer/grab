@@ -3,6 +3,7 @@ package grab
 import (
 	"context"
 	"hash"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -55,6 +56,10 @@ type Request struct {
 	// Instead, the download will be stored in memory and accessible only via
 	// Response.Open or Response.Bytes.
 	NoStore bool
+
+	// Writer specifies an io.Writer that will be used to store the downloaded
+	// file.
+	Writer io.Writer
 
 	// NoCreateDirectories specifies that any missing directories in the given
 	// Filename path should not be created automatically, if they do not already
@@ -121,6 +126,19 @@ func NewRequest(dst, urlStr string) (*Request, error) {
 	return &Request{
 		HTTPRequest: req,
 		Filename:    dst,
+	}, nil
+}
+
+// NewRequestToWriter returns a new file transfer Request suitable for use with
+// Client.Do. The response body will be written to the given io.Writer.
+func NewRequestToWriter(dst io.Writer, urlStr string) (*Request, error) {
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Request{
+		HTTPRequest: req,
+		Writer:      dst,
 	}, nil
 }
 

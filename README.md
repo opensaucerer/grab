@@ -2,27 +2,26 @@
 
 [![GoDoc](https://godoc.org/github.com/cavaliercoder/grab?status.svg)](https://godoc.org/github.com/cavaliercoder/grab) [![Build Status](https://travis-ci.org/cavaliercoder/grab.svg?branch=master)](https://travis-ci.org/cavaliercoder/grab) [![Go Report Card](https://goreportcard.com/badge/github.com/cavaliercoder/grab)](https://goreportcard.com/report/github.com/cavaliercoder/grab)
 
-*Downloading the internet, one goroutine at a time!*
+_Downloading the internet, one goroutine at a time!_
 
-	$ go get github.com/cavaliergopher/grab/v3
+    $ go get github.com/cavaliergopher/grab/v3
 
 Grab is a Go package for downloading files from the internet with the following
 rad features:
 
-* Monitor download progress concurrently
-* Auto-resume incomplete downloads
-* Guess filename from content header or URL path
-* Safely cancel downloads using context.Context
-* Validate downloads using checksums
-* Download batches of files concurrently
-* Apply rate limiters
+- Monitor download progress concurrently
+- Auto-resume incomplete downloads
+- Guess filename from content header or URL path
+- Safely cancel downloads using context.Context
+- Validate downloads using checksums
+- Download batches of files concurrently
+- Apply rate limiters
 
 Requires Go v1.7+
 
 ## Example
 
-The following example downloads a PDF copy of the free eBook, "An Introduction
-to Programming in Go" into the current working directory.
+#### The following example downloads a PDF copy of the free eBook, "An Introduction to Programming in Go" into the current working directory.
 
 ```go
 resp, err := grab.Get(".", "http://www.golang-book.com/public/pdf/gobook.pdf")
@@ -94,6 +93,114 @@ Loop:
 	//   transferred 1207474 / 2893557 bytes (41.73%)
 	//   transferred 2758210 / 2893557 bytes (95.32%)
 	// Download saved to ./gobook.pdf
+}
+```
+
+#### This extended version of the original `cavaliergopher/grab` now allows you to download files into a given io.Writer.
+
+```go
+package main
+
+import (
+	"log"
+	"os"
+	"sync"
+	"time"
+
+	"cloud.google.com/go/storage"
+	"github.com/blacheinc/pixels-golang-engine/config"
+	"github.com/blacheinc/pixels-golang-engine/gcs"
+	"github.com/cavaliergopher/grab/v3"
+)
+
+type File struct {
+	URL      string `json:"url"`
+	Filename string `json:"filename"`
+}
+
+func main() {
+	grabFiles([]File{
+		{
+			URL:      "http://ipv4.download.thinkbroadband.com/512MB.zip",
+			Filename: "a-random-file.zip",
+		},
+		{
+			URL:      "http://ipv4.download.thinkbroadband.com/512MB.zip",
+			Filename: "a-very-random-file.zip",
+		},
+	})
+}
+
+func grabFiles(files []File) {
+
+	var wg sync.WaitGroup
+
+	var activeDownloads []*grab.Response
+
+	// create client
+	client := grab.NewClient()
+
+	for _, file := range files {
+		// create gcs destination
+		d, err := gcs.OpenForSaving(config.GlobalConfig.OGBucket, file.Filename)
+		if err != nil {
+			log.Printf("gcs.OpenForSaving: Download request failed :: %s :: %s :: %v", file.URL, file.Filename, err)
+			return
+		}
+
+		// create download request
+		req, _ := grab.NewRequestToWriter(d, file.URL)
+
+		// start download
+		resp := client.Do(req)
+
+		log.Printf("%s :: Downloading %s to %s ...\n", resp.HTTPResponse.Status, req.URL(), resp.Filename)
+
+		activeDownloads = append(activeDownloads, resp)
+
+		wg.Add(1)
+	}
+
+	// start progress ticker
+	t := time.NewTicker(5000 * time.Millisecond)
+	defer t.Stop()
+
+	for _, resp := range activeDownloads {
+		go func(r *grab.Response) {
+			<-r.Done
+			log.Printf("%s download completed", r.Filename)
+		}(resp)
+	}
+
+	go func() {
+		for {
+			<-t.C
+			for _, resp := range activeDownloads {
+				log.Printf("%s :: transferred %v / %v bytes (%.2f%%)", resp.Filename, resp.BytesComplete(), resp.Size(), 100*resp.Progress())
+			}
+		}
+	}()
+
+	for _, resp := range activeDownloads {
+		go func(r *grab.Response) {
+			// check for errors
+			if err := r.Err(); err != nil {
+				log.Printf("%s :: Download failed :: %v\n", r.Filename, err)
+				os.Exit(1)
+			}
+
+			if err := r.Request.Writer.(*storage.Writer).Close(); err != nil {
+				log.Printf("%s :: Download failed :: %v\n", r.Filename, err)
+				os.Exit(1)
+			}
+
+			log.Printf("Download saved to ./%v \n", r.Filename)
+
+			wg.Done()
+		}(resp)
+	}
+
+	wg.Wait()
 }
 ```
 

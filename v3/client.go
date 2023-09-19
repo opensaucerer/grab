@@ -304,7 +304,7 @@ func (c *Client) checksumFile(resp *Response) stateFunc {
 	// compare checksum
 	if !bytes.Equal(sum, req.checksum) {
 		resp.err = ErrBadChecksum
-		if !resp.Request.NoStore && req.deleteOnError {
+		if !resp.Request.NoStore && req.deleteOnError && resp.Request.Writer == nil {
 			if err := os.Remove(resp.Filename); err != nil {
 				// err should be os.PathError and include file path
 				resp.err = fmt.Errorf(
@@ -424,45 +424,49 @@ func (c *Client) readResponse(resp *Response) stateFunc {
 //
 // Requires that Response.Filename and resp.DidResume are already be set.
 func (c *Client) openWriter(resp *Response) stateFunc {
-	if !resp.Request.NoStore && !resp.Request.NoCreateDirectories {
-		resp.err = mkdirp(resp.Filename)
-		if resp.err != nil {
-			return c.closeResponse
-		}
-	}
-
-	if resp.Request.NoStore {
-		resp.writer = &resp.storeBuffer
-	} else {
-		// compute write flags
-		flag := os.O_CREATE | os.O_WRONLY
-		if resp.fi != nil {
-			if resp.DidResume {
-				flag = os.O_APPEND | os.O_WRONLY
-			} else {
-				// truncate later in copyFile, if not cancelled
-				// by BeforeCopy hook
-				flag = os.O_WRONLY
+	if resp.Request.Writer == nil {
+		if !resp.Request.NoStore && !resp.Request.NoCreateDirectories {
+			resp.err = mkdirp(resp.Filename)
+			if resp.err != nil {
+				return c.closeResponse
 			}
 		}
 
-		// open file
-		f, err := os.OpenFile(resp.Filename, flag, 0666)
-		if err != nil {
-			resp.err = err
-			return c.closeResponse
-		}
-		resp.writer = f
+		if resp.Request.NoStore {
+			resp.writer = &resp.storeBuffer
+		} else {
+			// compute write flags
+			flag := os.O_CREATE | os.O_WRONLY
+			if resp.fi != nil {
+				if resp.DidResume {
+					flag = os.O_APPEND | os.O_WRONLY
+				} else {
+					// truncate later in copyFile, if not cancelled
+					// by BeforeCopy hook
+					flag = os.O_WRONLY
+				}
+			}
 
-		// seek to start or end
-		whence := os.SEEK_SET
-		if resp.bytesResumed > 0 {
-			whence = os.SEEK_END
+			// open file
+			f, err := os.OpenFile(resp.Filename, flag, 0666)
+			if err != nil {
+				resp.err = err
+				return c.closeResponse
+			}
+			resp.writer = f
+
+			// seek to start or end
+			whence := os.SEEK_SET
+			if resp.bytesResumed > 0 {
+				whence = os.SEEK_END
+			}
+			_, resp.err = f.Seek(0, whence)
+			if resp.err != nil {
+				return c.closeResponse
+			}
 		}
-		_, resp.err = f.Seek(0, whence)
-		if resp.err != nil {
-			return c.closeResponse
-		}
+	} else {
+		resp.writer = resp.Request.Writer
 	}
 
 	// init transfer
@@ -514,7 +518,7 @@ func (c *Client) copyFile(resp *Response) stateFunc {
 	closeWriter(resp)
 
 	// set file timestamp
-	if !resp.Request.NoStore && !resp.Request.IgnoreRemoteTime {
+	if !resp.Request.NoStore && !resp.Request.IgnoreRemoteTime && resp.Request.Writer == nil {
 		resp.err = setLastModified(resp.HTTPResponse, resp.Filename)
 		if resp.err != nil {
 			return c.closeResponse
