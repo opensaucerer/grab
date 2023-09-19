@@ -32,8 +32,7 @@ if err != nil {
 fmt.Println("Download saved to", resp.Filename)
 ```
 
-The following, more complete example allows for more granular control and
-periodically prints the download progress until it is complete.
+#### The following, more complete example allows for more granular control and periodically prints the download progress until it is complete.
 
 The second time you run the example, it will auto-resume the previous download
 and exit sooner.
