@@ -237,3 +237,5 @@ through extensible interfaces, rather than reimplementation. For example,
 you can provide your own Hash algorithm to compute file checksums, or your
 own rate limiter implementation (with all the associated trade-offs) to rate
 limit downloads.
+
+The extension to support downloading into an io.Writer does not currently support resuming. This is because different io.Writers have different ways of handling resuming making it difficult to implement a generic solution (at least for now).
