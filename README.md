@@ -95,7 +95,7 @@ Loop:
 }
 ```
 
-#### This extended version of the original `opensaucerer/grab` now allows you to download files into a given io.Writer.
+#### This extended version of the original `cavaliergopher/grab` now allows you to download files into a given io.Writer.
 
 ```go
 package main
